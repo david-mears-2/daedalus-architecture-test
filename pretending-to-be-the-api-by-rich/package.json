@@ -1,0 +1,23 @@
+{
+  "name": "pretending-to-be-the-api-by-rich",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start-server": "node server.js",
+    "start-pusher": "python3 data_pusher.py",
+    "start": "npm-run-all --parallel start-server start-pusher",
+    "refresh": "rm -rf outputs && mkdir outputs && redis-cli flushdb"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "express": "^4.19.2",
+    "redis": "^4.6.14"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}
