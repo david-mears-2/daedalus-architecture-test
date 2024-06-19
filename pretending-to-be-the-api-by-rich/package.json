@@ -7,7 +7,7 @@
     "start-server": "node server.js",
     "start-pusher": "python3 data_pusher.py",
     "start": "npm-run-all --parallel start-server start-pusher",
-    "refresh": "rm -rf outputs && mkdir outputs && redis-cli flushdb"
+    "refresh": "rm -rf outputs && mkdir outputs && touch outputs/.gitkeep && redis-cli flushdb"
   },
   "keywords": [],
   "author": "",

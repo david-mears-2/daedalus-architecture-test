@@ -1,3 +1,7 @@
+"""
+Run a simulation of an analysis job that takes a random amount of time to complete.
+"""
+
 import time
 import sys
 import random

@@ -1,3 +1,6 @@
 pretending-to-be-the-api-by-rich/outputs
 
 */node_modules
+
+dump.rdb
+*/dump.rdb
