@@ -5,7 +5,11 @@ This directory (pretending-to-be-the-api-by-rich) stands in for the API that Ric
 * It creates some ids for those jobs, and writes those down in RAM (Redis), and replies to the original HTTP request straight away with the list of ids.
 * It also tracks which job ids correspond to which webhook urls (it stores a list of job ids under each webhook url in Redis).
 * It goes away and runs the 'jobs', concurrently. (It simulates the actual job by just writing to a file every 10ms: analysis.py). In Redis, we track the status of the job, which can be 'unstarted', 'processing', 'completed', or 'completed_and_sent'.
-* In data_pusher.py, it frequently (currently every 15ms) checks for any jobs that might have new data to send (that is, jobs with a status other than 'unstarted' or 'completed_and_sent'), and sends off (pushes) all the output info for all those jobs, back to the corresponding webhook url(s). This is done dumbly: it doesn't limit itself only to 'new data'. Since this can be a large amount of data to send, we batch these pushes into HTTP requests of maximum 100KB each.
+* In data_pusher.py, it frequently (currently every 15ms - this is probably a lot more frequent than we need it to be, users wouldn't begrudge another 50ms) (and it's not really every 15ms, that's just the amount I told it to sleep for between each burst of activity) checks for any jobs that might have new data to send (that is, jobs with a status other than 'unstarted' or 'completed_and_sent'), and sends off (pushes) all the output info for all those jobs, back to the corresponding webhook url(s). (That's what "long-polling" refers to = A sends a request, and B doesn’t send a response until something changes.) This is done dumbly: it doesn't limit itself only to 'new data'. Since this can be a large amount of data to send, we chunk these pushes into HTTP requests of maximum 100KB each.
+* Ways this could be optimized if we wanted to:
+  * If we wanted to optimize the data-pushing part, we could add 'multiplexing', an HTTP/2 feature that means we can reuse the same connection instead of creating and closing a new one for every chunk.
+  * If Redis is a bottleneck, we could maybe listen (pub/sub) to Redis for updates, rather than directly querying it?
+  * If scale of data is a bottleneck, we could do different levels of granularity and send coarser versions, even adaptively for those connections that seem to be struggling
 
 requestIndexPrinter.js is just used as a simple way to catch and monitor these data pushes so we can see if they made it.
 
@@ -18,11 +22,13 @@ npm install
 
 ## run
 
+You need a redis server up and running first. Then you can start the API server and it's data-pusher job using:
+
 ```
 npm run start
 ```
 
-## empty redis (careful!) and the outputs directory
+## to empty redis (careful!) and the outputs directory
 
 ```
 npm run refresh
@@ -77,7 +83,7 @@ sendConcurrentRequests(1000)
 
 ## Benchmarking
 
-| Number of 'concurrent' requests to API (= number of clicks from users) | Time taken to send 'concurrent' API requests | Analysis runs triggered (should be 1-6 per request) | Configured frequency of pushing data from API (ms) (these are batched) (should not be less than frequency of run output writes) | HTTP requests received from API (chunked into max 100KB per request) | Time till all run data received | Average frequency of receiving requests from API (can exceed configured frequency due to batching)
+| Number of 'concurrent' requests to API (= number of clicks from users) | Time taken to send 'concurrent' API requests | Analysis runs triggered (should be 1-6 per request) | Configured frequency of pushing data from API (ms) (these are chunked) (should not be less than frequency of run output writes) | HTTP requests received from API (chunked into max 100KB per request) | Time till all run data received | Average frequency of receiving requests from API (can exceed configured frequency due to chunking)
 | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
 | 1000 | 50s  | 3566 | 50   | 1539 | 60s   | 39ms  |
 | Repeating the same experiment again:
@@ -120,7 +126,7 @@ redis-cli KEYS "daedalus_tryout:jobs:*" | wc -l
 
 
 
-### original outdated prompt for chatgpt
+### original, outdated prompt for chatgpt when I asked it to build this simulated API
 
 I'm testing out my idea for the architecture of a system by quickly prototyping it, so I can do some load testing. Please could you write me up the minimal, simplest thing that achieves the below requirements (this is to mimic an external API). You may of course use multiple files. Please stick to JS and Python for any high-level languages.
 

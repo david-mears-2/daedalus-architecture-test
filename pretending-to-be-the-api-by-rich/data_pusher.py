@@ -64,7 +64,7 @@ def send_updates():
                         if status == 'completed':
                             r.set(f"{redis_prefix}:jobs:{job_id}:status", "completed_and_sent", ex=3600)
 
-        time.sleep(0.015)
+        time.sleep(0.05)
 
 if __name__ == "__main__":
     send_updates()

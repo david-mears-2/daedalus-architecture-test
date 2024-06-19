@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Client</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <button id="startJobBtn">Start 5 Jobs</button>
+    <div id="jobStatuses">
+        <h2>Job Statuses</h2>
+        <ul id="jobStatusList">
+            <li>Processing: Yellow</li>
+            <li>Completed: Green</li>
+        </ul>
+    </div>
+    <canvas id="updates"></canvas>
+</body>
+<script>
+const statusColors = {
+    'processing': 'rgba(255, 206, 86, 0.2)', // Yellow
+    'completed': 'rgba(75, 192, 192, 0.2)', // Green
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const socket = io('http://localhost:4000', {
+        reconnection: true, // Enable/Disable reconnection
+        reconnectionAttempts: Infinity, // Number of reconnection attempts before giving up
+        reconnectionDelay: 1000, // Initial delay (ms) before the first reconnection attempt
+        reconnectionDelayMax: 5000, // Maximum delay (ms) between reconnection attempts
+        randomizationFactor: 0.5 // Randomization factor for the delay (to avoid connection storms)
+    });
+
+    const startJobBtn = document.getElementById('startJobBtn');
+    const ctx = document.getElementById('updates').getContext('2d');
+    let myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Number of bytes of output received per job',
+                data: [],
+                backgroundColor: [statusColors['processing']],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    socket.on('connect', () => {
+        console.log('Connected to application server');
+    });
+
+    socket.on('job started', (data) => {
+        console.log('Job started:', data);
+    });
+
+    socket.on('job update', (data) => {
+        // console.log('Job update:', data);
+
+        jobIds = Object.keys(data);
+
+        jobIds.forEach(jobId => {
+            const jobIndex = myChart.data.labels.indexOf(jobId);
+            const outputLength = new TextEncoder().encode(data[jobId].output).length;
+            if (jobIndex === -1) {
+                myChart.data.labels.push(jobId);
+                myChart.data.datasets[0].data.push(outputLength);
+            } else {
+                myChart.data.datasets[0].data[jobIndex] = outputLength;
+            }
+            console.log(statusColors[data[jobId].status]);
+            console.log(data[jobId].status);
+            console.log(myChart.data.datasets[0].backgroundColor);
+            myChart.data.datasets[0].backgroundColor[jobIndex] = statusColors[data[jobId].status];
+            console.log(myChart.data.datasets[0].backgroundColor);
+
+            myChart.update();
+        });
+
+        
+
+
+        socket.emit('job update received by client', data);
+    });
+
+    startJobBtn.addEventListener('click', () => {
+        socket.emit('start job', { analyses: 5, webhookUrl: 'http://localhost:4000/job-update' });
+    });
+});
+</script>
+</html>
